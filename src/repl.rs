@@ -1,4 +1,6 @@
 use std::{io, io::prelude::*};
+use std::str::Chars;
+use std::iter::Peekable;
 
 const PROMPT : &str = ">>";
 
@@ -12,7 +14,8 @@ impl REPL {
     let stdin = io::stdin();
     
     for line in stdin.lock().lines() {
-        let mut lexer = super::lexer::Lexer { read_position: 0, position: 0, char: '\0', input: line.unwrap() };
+        let input = line.unwrap();
+        let mut lexer = super::lexer::Lexer { input: input.chars().peekable() };
         loop {
             let tok = lexer.nextToken();
             match tok.token_type {

@@ -1,16 +1,18 @@
-#[derive(Debug)]
-pub enum TokenValue<'a> {
-    String(&'a str),
-    Identifier(&'a str),
-    Number(u32)
+#[derive(Debug, Clone)]
+pub enum TokenValue {
+    String(String),
+    Identifier(String),
+    Number(u32),
+    Null
 }
 
-pub struct Token<'a> {
+#[derive(Clone, Debug)]
+pub struct Token {
   pub token_type: TokenType,
-  pub token_literal: TokenValue<'a>
+  pub token_literal: TokenValue
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     Assign,
     SemiColon,
@@ -31,5 +33,6 @@ pub enum TokenType {
     Return,
     Eq,
     NotEq,
-    Bang
+    Bang,
+    Null
 }
