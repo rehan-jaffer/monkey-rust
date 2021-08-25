@@ -12,7 +12,7 @@ pub struct Token {
   pub token_literal: TokenValue
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TokenType {
     Assign,
     SemiColon,
@@ -34,5 +34,9 @@ pub enum TokenType {
     Eq,
     NotEq,
     Bang,
-    Null
+    Null,
+    Minus,
+    LBracket,
+    Equal,
+    NotEqual
 }

@@ -37,11 +37,10 @@ pub struct Lexer<'a> {
         ident.push(first);
 
         loop {
-            if !self.peekChar().unwrap().is_alphabetic() {
+          if !self.peekChar().unwrap().is_numeric() {
                 break;
-            }
-  
-            ident.push(self.readChar().unwrap());
+          }
+          ident.push(self.readChar().unwrap());
         }
         let number = ident.parse().unwrap();
         return number;
@@ -95,7 +94,6 @@ pub struct Lexer<'a> {
   
       pub fn nextToken(&mut self) -> super::token::Token {
   
-        self.readChar();
         self.skip_whitespace();
   
         return match self.readChar() {
@@ -125,6 +123,7 @@ pub struct Lexer<'a> {
             Some('(') => super::token::Token { token_type: super::token::TokenType::LParen, token_literal: super::token::TokenValue::String("(".to_string()) },
             Some(')') => super::token::Token { token_type: super::token::TokenType::RParen, token_literal: super::token::TokenValue::String(")".to_string()) },
             Some(',') => super::token::Token { token_type: super::token::TokenType::Comma, token_literal: super::token::TokenValue::String(",".to_string()) },
+            Some('-') => super::token::Token { token_type: super::token::TokenType::Minus, token_literal: super::token::TokenValue::String("-".to_string()) },
             Some('+') => super::token::Token { token_type: super::token::TokenType::Plus, token_literal: super::token::TokenValue::String("+".to_string()) },
             Some('[') => super::token::Token { token_type: super::token::TokenType::LBrace, token_literal: super::token::TokenValue::String("[".to_string()) },
             Some(']') => super::token::Token { token_type: super::token::TokenType::RBrace, token_literal: super::token::TokenValue::String("]".to_string()) },
