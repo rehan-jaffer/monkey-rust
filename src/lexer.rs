@@ -1,4 +1,3 @@
-use super::token::{Token};
 use std::str::Chars;
 use std::iter::Peekable;
 
@@ -31,44 +30,44 @@ pub struct Lexer<'a> {
         }
       }
 
-      fn readDigit(&mut self, first: char) -> u32 {
+      fn read_digit(&mut self, first: char) -> u32 {
 
         let mut ident = String::new();
         ident.push(first);
 
         loop {
-          if !self.peekChar().unwrap().is_numeric() {
+          if !self.peek_char().unwrap().is_numeric() {
                 break;
           }
-          ident.push(self.readChar().unwrap());
+          ident.push(self.read_char().unwrap());
         }
         let number = ident.parse().unwrap();
         return number;
       }
   
-      fn readIdentifier(&mut self, first: char) -> String {
+      fn read_identifier(&mut self, first: char) -> String {
 
         let mut ident = String::new();
         ident.push(first);
 
         loop {
-            if !self.peekChar().unwrap().is_alphabetic() {
+            if !self.peek_char().unwrap().is_alphabetic() {
                 break;
             }
   
-            ident.push(self.readChar().unwrap());
+            ident.push(self.read_char().unwrap());
         }
 
         return ident;
       }
   
-      pub fn peekChar(&mut self) -> Option<&char> {
+      pub fn peek_char(&mut self) -> Option<&char> {
 
           return self.input.peek();
   
       }
   
-      pub fn readChar(&mut self) -> Option<char> {
+      pub fn read_char(&mut self) -> Option<char> {
   
         return self.input.next();
 
@@ -77,7 +76,7 @@ pub struct Lexer<'a> {
       fn skip_whitespace(&mut self) {
         let whitespace = [' ', '\t', '\r', '\n'];
         loop {
-          match self.peekChar() {
+          match self.peek_char() {
             Some(c) => {
               if !whitespace.contains(c) {
                 break;
@@ -87,7 +86,7 @@ pub struct Lexer<'a> {
               break;
             }
           }
-          self.readChar();
+          self.read_char();
         } 
       }
 
@@ -96,11 +95,11 @@ pub struct Lexer<'a> {
   
         self.skip_whitespace();
   
-        return match self.readChar() {
+        return match self.read_char() {
             Some('=') => {
-                match self.peekChar() {
+                match self.peek_char() {
                     Some('=') => {
-                      self.readChar();
+                      self.read_char();
                       return super::token::Token { token_type: super::token::TokenType::Eq, token_literal: super::token::TokenValue::String("==".to_string()) }
                     },
                     _ => {
@@ -109,9 +108,9 @@ pub struct Lexer<'a> {
                 };
               },
               Some('!') => {
-                  match self.peekChar() {
+                  match self.peek_char() {
                       Some('=') => {
-                        self.readChar();
+                        self.read_char();
                         return super::token::Token { token_type: super::token::TokenType::NotEq, token_literal: super::token::TokenValue::String("!=".to_string()) }
                       },
                       _ => {
@@ -130,10 +129,10 @@ pub struct Lexer<'a> {
             None => super::token::Token { token_type: super::token::TokenType::EOF, token_literal: super::token::TokenValue::String("\0".to_string()) },
             Some(e) => {
               if Lexer::is_digit(e) {
-                return super::token::Token { token_type: super::token::TokenType::Number, token_literal: super::token::TokenValue::Number(self.readDigit(e)) }
+                return super::token::Token { token_type: super::token::TokenType::Number, token_literal: super::token::TokenValue::Number(self.read_digit(e)) }
               }
   
-              let string = self.readIdentifier(e);
+              let string = self.read_identifier(e);
   
                 if Lexer::is_keyword(string.as_str()) {
                     return super::token::Token { token_type: Lexer::keyword(string.as_str()), token_literal: super::token::TokenValue::String(string) }

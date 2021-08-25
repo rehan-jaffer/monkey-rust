@@ -38,5 +38,5 @@ pub enum TokenType {
     Minus,
     LBracket,
     Equal,
-    NotEqual
+    NotEqual,
 }

@@ -9,13 +9,13 @@ mod parser;
 use std::cell::RefCell;
 
 
-use std::str::Chars;
-use std::iter::Peekable;
-
-const input_code : &str = "
+const INPUT_CODE : &str = "
 let five = 5;
 let ten = 10;
-let six = -10 + 5;
+let x = -9 + 1;
+let y = 1 + 2 + 3 + 4 +5;
+let z = 1 - 2 + 3 + 4;
+let i = 2 - 1 + -10;
 ";
 
 // let result = add(five, ten);
@@ -28,12 +28,12 @@ fn main() {
 //   let repl = repl::REPL { };
 //   repl.start();
 
-   println!("Parsing program: {}", input_code);
-   let mut lexer = lexer::Lexer { input: input_code.chars().peekable() };
+   println!("Parsing program: {}", INPUT_CODE);
+   let mut lexer = lexer::Lexer { input: INPUT_CODE.chars().peekable() };
    let mut parser = parser::Parser::new(&mut lexer);
    let program = parser.parse_program();
 
-   let mut lexer = lexer::Lexer { input: input_code.chars().peekable() };
+   let mut lexer = lexer::Lexer { input: INPUT_CODE.chars().peekable() };
 
    println!("Tokens: ");
    loop {
@@ -46,7 +46,8 @@ fn main() {
 
    println!("\r\nAST: ");
    for statement in program.statements {
-      println!("Node -> {:#?}", statement);
+     statement.serialize();
+     println!("");
    }
 
 }
