@@ -66,6 +66,7 @@ impl Expr {
               ret += ")";
             },
             Expr::Prefix(prefix, expr) => {
+                ret += " ";
                 match prefix {
                   Prefix::Minus => {
                       ret += "(-";
