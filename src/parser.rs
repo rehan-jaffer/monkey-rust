@@ -95,16 +95,14 @@ impl Node {
 
       match self {
           Node::Statement(statement) => {
-            match statement {
-              Statement::Let(Ident(TokenValue::Identifier(ident)), expr) => {
-                ret += "let ";
-                ret += ident;
-                ret += expr.serialize().as_str();
-              },
+            let stmt = match statement {
+              Statement::Let(Ident(TokenValue::Identifier(ident)), expr) => { format!("{} {}{}", statement.serialize(), ident, &expr.serialize()) }
+              Statement::Return(expr) => { format!("{}{}", statement.serialize(), &expr.serialize()) }
               _ => {
-                  ret += "MISSING"
+                  "MISSING".to_string()
               }
             };
+            ret += stmt.as_str();
           }
           Node::Expression(expression) => {
             ret += "unimplemented";
@@ -148,6 +146,16 @@ pub enum Statement {
   Let(Ident, Expr),
   Return(Expr),
   Expr(Expr)
+}
+
+impl Statement {
+    pub fn serialize(&self) -> &str {
+        match self {
+            Statement::Let(_, _) => "let",
+            Statement::Return(_) => "ret",
+            _ => ""
+        }
+    }
 }
 
 pub type Block = Vec<Node>;
@@ -271,6 +279,7 @@ impl<'a> Parser<'a> {
       match token_type {
           TokenType::Equal | TokenType::NotEqual => Precedence::EQUALS,
           TokenType::Plus | TokenType::Minus => Precedence::SUM,
+          TokenType::Asterisk => Precedence::PRODUCT,
           _ => Precedence::LOWEST,
       }
     }
@@ -279,6 +288,11 @@ impl<'a> Parser<'a> {
         let infix = match self.cur_token.token_type.clone() {
           TokenType::Plus => Infix::Plus,
           TokenType::Minus => Infix::Minus,
+          TokenType::Asterisk => Infix::Multiply,
+          TokenType::Eq => Infix::Equal,
+          TokenType::NotEq => Infix::NotEqual,
+          TokenType::GreaterThan => Infix::GreaterThan,
+          TokenType::LessThan => Infix::LessThan,
           _ => Infix::Null
         };
 
@@ -309,9 +323,36 @@ impl<'a> Parser<'a> {
 
     }
 
+    fn parse_boolean(&mut self) -> Result<Expr,ParserError> {
+        match self.cur_token.token_type {
+            TokenType::True => {
+                return Ok(Expr::Literal(Literal::Bool(true)))
+            }
+            TokenType::False => {
+               return Ok(Expr::Literal(Literal::Bool(false)))
+            },
+            _ => Err(ParserError::UnknownTokenError(self.cur_token.token_type.clone()))
+        }
+    }
+
+    fn parse_grouped_expr(&mut self) -> Result<Expr, ParserError> {
+
+        self.next_token();
+        let expr = self.parse_expr(Precedence::LOWEST);
+
+        if !self.expect_peek(TokenType::RParen) {
+            return Err(ParserError::UnexpectedTokenError(TokenType::RParen, self.cur_token.token_type.clone()));
+        }
+
+        return expr;
+
+    }
+
     fn parse_expr(&mut self, precedence: Precedence) -> Result<Expr, ParserError> {
 
       let mut lhs = match self.cur_token.token_type {
+        TokenType::True | TokenType::False => self.parse_boolean(),
+        TokenType::LParen => self.parse_grouped_expr(),
         TokenType::Ident => self.parse_ident_expr(),
         TokenType::Number => self.parse_number(),
         TokenType::Bang | TokenType::Minus | TokenType::Plus => self.parse_prefix_expr(),
@@ -323,18 +364,17 @@ impl<'a> Parser<'a> {
 
       while self.peek_token.token_type != TokenType::SemiColon && (precedence < self.token_precedence(self.peek_token.token_type.clone())) {
 
-        println!("{:?}", self.peek_token.token_type);
-
         match self.peek_token.token_type {
         TokenType::Plus
+        | TokenType::Asterisk
         | TokenType::Minus => {
             self.next_token();
             lhs = self.parse_infix_expr(lhs).unwrap();
         }
-        TokenType::LBracket => {
+        TokenType::LParen => {
             self.next_token();
         }
-        TokenType::LParen => {
+        TokenType::RParen => {
             self.next_token();
         }
         _ => return Ok(lhs),
@@ -343,6 +383,20 @@ impl<'a> Parser<'a> {
     }
 
       return Ok(lhs)
+
+    }
+
+    fn parse_return_statement(&mut self) -> Result<Node, ParserError> {
+
+        self.next_token();
+        let expr = self.parse_expr(Precedence::LOWEST);
+
+        self.expect_peek(TokenType::SemiColon);
+
+        match expr {
+          Ok(expr) => Ok(Node::Statement(Statement::Return(expr))),
+          Err(e) => Err(e)
+        }
 
     }
 
@@ -374,9 +428,9 @@ impl<'a> Parser<'a> {
 
       fn parse_statement(&mut self) -> Result<Node, ParserError> {
 
-
-        match self.cur_token.token_type {
+        match self.cur_token.token_type.clone() {
           TokenType::Let => { self.parse_let_statement() },
+          TokenType::Return => { self.parse_return_statement() },
           TokenType::Null => { Ok(Node::Statement(Statement::Null)) }
           _ => {
             Err(ParserError::UnknownTokenError(self.cur_token.token_type.clone()))

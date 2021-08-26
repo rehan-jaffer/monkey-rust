@@ -41,4 +41,24 @@ mod test {
     assert_eq!(parse_statement("let z = !-1 + !-1;"), "(let z (+ (! (- 1)) (! (- 1))))");
   }
 
+  #[test]
+  fn it_parses_boolean_literals() {
+    assert_eq!(parse_statement("let z = false;"), "(let z false)");
+  }
+
+  #[test]
+  fn it_parses_return_statements() {
+    assert_eq!(parse_statement("return 1 + 1;"), "(ret (+ 1 1))");
+  }
+
+  #[test]
+  fn it_parses_complicated_return_statements() {
+    assert_eq!(parse_statement("return 1 + 1 - !3;"), "(ret (- (+ 1 1) (! 3)))")
+  }
+
+  #[test]
+  fn it_allows_grouped_expressions_to_change_precedence() {
+    assert_eq!(parse_statement("return 1 + (1 * 3);"), "(ret (+ 1 (* 1 3)))");
+    assert_eq!(parse_statement("return (1 + 1) * 3;"), "(ret (* (+ 1 1) 3))");
+  }
 }

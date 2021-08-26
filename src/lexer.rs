@@ -26,6 +26,8 @@ pub struct Lexer<'a> {
             "if" => super::token::TokenType::If,
             "else" => super::token::TokenType::Else,
             "return" => super::token::TokenType::Return,
+            "true" => super::token::TokenType::True,
+            "false" => super::token::TokenType::False,
             _ => super::token::TokenType::Unknown
         }
       }
@@ -51,8 +53,9 @@ pub struct Lexer<'a> {
         ident.push(first);
 
         loop {
-            if !self.peek_char().unwrap().is_alphabetic() {
-                break;
+            match self.peek_char() {
+              Some(c) => if !c.is_alphabetic() { break },
+              None => { break }
             }
   
             ident.push(self.read_char().unwrap());
@@ -126,6 +129,7 @@ pub struct Lexer<'a> {
             Some('+') => super::token::Token { token_type: super::token::TokenType::Plus, token_literal: super::token::TokenValue::String("+".to_string()) },
             Some('[') => super::token::Token { token_type: super::token::TokenType::LBrace, token_literal: super::token::TokenValue::String("[".to_string()) },
             Some(']') => super::token::Token { token_type: super::token::TokenType::RBrace, token_literal: super::token::TokenValue::String("]".to_string()) },
+            Some('*') => super::token::Token { token_type: super::token::TokenType::Asterisk, token_literal: super::token::TokenValue::String("]".to_string()) },
             None => super::token::Token { token_type: super::token::TokenType::EOF, token_literal: super::token::TokenValue::String("\0".to_string()) },
             Some(e) => {
               if Lexer::is_digit(e) {
