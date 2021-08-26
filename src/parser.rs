@@ -25,9 +25,94 @@ pub struct Identifier {
     value: TokenValue
 }
 
+#[derive(Debug)]
 pub enum Node {
   Statement(Statement),
-  Expression(Expression),
+  Expression(Expr)
+}
+
+impl Expr {
+    pub fn serialize(&self) -> String {
+ 
+        let mut ret = String::new();
+ 
+        match self {
+            Expr::Ident(ident) => {
+              ret += "()";
+            },
+            Expr::Literal(literal) => {
+                ret += " ";
+                ret += literal.serialize().as_str();
+            },
+            Expr::Infix(infix, expr1, expr2) => {
+                ret += " (";
+
+                ret += match infix {
+                  Infix::Plus => "+",
+                  Infix::Minus => "-",
+                  Infix::Divide => "/",
+                  Infix::Multiply => "*",
+                  Infix::Equal => "==",
+                  Infix::NotEqual => "!=",
+                  Infix::GreaterThan => ">",
+                  Infix::GreaterThanEqual => ">=",
+                  Infix::LessThan => "<",
+                  Infix::LessThanEqual => "<=",
+                  Infix::Null => "?"
+              };
+
+              ret += expr1.serialize().as_str();
+              ret += expr2.serialize().as_str();
+              ret += ")";
+            },
+            Expr::Prefix(prefix, expr) => {
+                ret += " ";
+                match prefix {
+                  Prefix::Minus => {
+                      ret += "(-";
+                      ret += expr.serialize().as_str();
+                      ret += ")";
+                  },
+                  Prefix::Bang => {
+                    ret += "(!";
+                    ret += expr.serialize().as_str();
+                    ret += ")";
+                  }
+                  _ => {}
+                }
+            },
+            Null => {}
+        }
+        return ret;
+    }
+}
+
+impl Node {
+  pub fn serialize(&self) -> String {
+
+      let mut ret = String::new();
+      ret += "(";
+
+      match self {
+          Node::Statement(statement) => {
+            let stmt = match statement {
+              Statement::Let(Ident(TokenValue::Identifier(ident)), expr) => { format!("{} {}{}", statement.serialize(), ident, &expr.serialize()) }
+              Statement::Return(expr) => { format!("{}{}", statement.serialize(), &expr.serialize()) }
+              _ => {
+                  "MISSING".to_string()
+              }
+            };
+            ret += stmt.as_str();
+          }
+          Node::Expression(expression) => {
+            ret += "unimplemented";
+          }
+      }
+
+      ret += ")";
+      return ret;
+    }
+
 }
 
 #[derive(Debug)]
@@ -56,20 +141,51 @@ pub enum Prefix {
 }
 
 #[derive(Debug)]
-pub enum StatementNode {
+pub enum Statement {
   Null,
   Let(Ident, Expr),
   Return(Expr),
   Expr(Expr)
 }
 
-pub type Block = Vec<StatementNode>;
+impl Statement {
+    pub fn serialize(&self) -> &str {
+        match self {
+            Statement::Let(_, _) => "let",
+            Statement::Return(_) => "ret",
+            _ => ""
+        }
+    }
+}
+
+pub type Block = Vec<Node>;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Literal {
     Int(u32),
     String(String),
     Bool(bool),
+}
+
+impl Literal {
+    fn serialize(&self) -> String {
+      
+      let mut ret = String::new();
+
+      match self {
+          Literal::Int(i) => {
+              ret += i.to_string().as_str();
+          },
+          Literal::String(s) => {
+            ret += s;
+          },
+          Literal::Bool(b) => {
+            ret += b.to_string().as_str();
+          }
+      }
+
+      return ret;
+    }
 }
 
 #[derive(Debug)]
@@ -81,17 +197,7 @@ pub enum Expr {
     Null
 }
 
-#[derive(Debug)]
-pub enum Statement {
-    LetStatement {
-        token: Token,
-        name: Identifier,
-        value: Expression
-    },
-    ExpressionStatement {
-        token: Token,
-        expression: Expression
-    }
+impl Expr {
 }
 
 #[derive(Debug)]
@@ -129,6 +235,10 @@ impl<'a> Parser<'a> {
         };
     }
 
+    fn load_first_tokens(&mut self) {
+        self.next_token();
+        self.next_token();
+    }
 
     pub fn next_token(&mut self) {
       self.cur_token = self.peek_token.clone();
@@ -154,22 +264,6 @@ impl<'a> Parser<'a> {
 
     }
 
-    fn parse_expression_statement(&mut self) -> Result<Statement, ParserError> {
-
-        let expression = Expression::NullExpression;
-        
-        if self.expect_peek(TokenType::SemiColon) {
-            self.next_token();
-        } else {
-            return Err(ParserError::UnexpectedTokenError(TokenType::SemiColon, self.cur_token.token_type.clone()));
-        }
-
-        let tok = self.cur_token.clone();
-        let statement = Statement::ExpressionStatement { token: tok, expression: expression };
-
-        return Ok(statement);
-    }
-
     fn parse_ident_expr(&mut self) -> Result<Expr, ParserError> {
       Ok(Expr::Null)
     }
@@ -185,6 +279,7 @@ impl<'a> Parser<'a> {
       match token_type {
           TokenType::Equal | TokenType::NotEqual => Precedence::EQUALS,
           TokenType::Plus | TokenType::Minus => Precedence::SUM,
+          TokenType::Asterisk => Precedence::PRODUCT,
           _ => Precedence::LOWEST,
       }
     }
@@ -193,6 +288,11 @@ impl<'a> Parser<'a> {
         let infix = match self.cur_token.token_type.clone() {
           TokenType::Plus => Infix::Plus,
           TokenType::Minus => Infix::Minus,
+          TokenType::Asterisk => Infix::Multiply,
+          TokenType::Eq => Infix::Equal,
+          TokenType::NotEq => Infix::NotEqual,
+          TokenType::GreaterThan => Infix::GreaterThan,
+          TokenType::LessThan => Infix::LessThan,
           _ => Infix::Null
         };
 
@@ -223,9 +323,36 @@ impl<'a> Parser<'a> {
 
     }
 
+    fn parse_boolean(&mut self) -> Result<Expr,ParserError> {
+        match self.cur_token.token_type {
+            TokenType::True => {
+                return Ok(Expr::Literal(Literal::Bool(true)))
+            }
+            TokenType::False => {
+               return Ok(Expr::Literal(Literal::Bool(false)))
+            },
+            _ => Err(ParserError::UnknownTokenError(self.cur_token.token_type.clone()))
+        }
+    }
+
+    fn parse_grouped_expr(&mut self) -> Result<Expr, ParserError> {
+
+        self.next_token();
+        let expr = self.parse_expr(Precedence::LOWEST);
+
+        if !self.expect_peek(TokenType::RParen) {
+            return Err(ParserError::UnexpectedTokenError(TokenType::RParen, self.cur_token.token_type.clone()));
+        }
+
+        return expr;
+
+    }
+
     fn parse_expr(&mut self, precedence: Precedence) -> Result<Expr, ParserError> {
 
       let mut lhs = match self.cur_token.token_type {
+        TokenType::True | TokenType::False => self.parse_boolean(),
+        TokenType::LParen => self.parse_grouped_expr(),
         TokenType::Ident => self.parse_ident_expr(),
         TokenType::Number => self.parse_number(),
         TokenType::Bang | TokenType::Minus | TokenType::Plus => self.parse_prefix_expr(),
@@ -237,18 +364,17 @@ impl<'a> Parser<'a> {
 
       while self.peek_token.token_type != TokenType::SemiColon && (precedence < self.token_precedence(self.peek_token.token_type.clone())) {
 
-        println!("{:?}", self.peek_token.token_type);
-
         match self.peek_token.token_type {
         TokenType::Plus
+        | TokenType::Asterisk
         | TokenType::Minus => {
             self.next_token();
             lhs = self.parse_infix_expr(lhs).unwrap();
         }
-        TokenType::LBracket => {
+        TokenType::LParen => {
             self.next_token();
         }
-        TokenType::LParen => {
+        TokenType::RParen => {
             self.next_token();
         }
         _ => return Ok(lhs),
@@ -260,7 +386,21 @@ impl<'a> Parser<'a> {
 
     }
 
-    fn parse_let_statement(&mut self) -> Result<StatementNode, ParserError> {
+    fn parse_return_statement(&mut self) -> Result<Node, ParserError> {
+
+        self.next_token();
+        let expr = self.parse_expr(Precedence::LOWEST);
+
+        self.expect_peek(TokenType::SemiColon);
+
+        match expr {
+          Ok(expr) => Ok(Node::Statement(Statement::Return(expr))),
+          Err(e) => Err(e)
+        }
+
+    }
+
+    fn parse_let_statement(&mut self) -> Result<Node, ParserError> {
 
       if !self.expect_peek(TokenType::Ident) {
         return Err(ParserError::UnexpectedTokenError(TokenType::Ident, self.peek_token.token_type.clone()));
@@ -283,15 +423,15 @@ impl<'a> Parser<'a> {
         return Err(ParserError::UnexpectedTokenError(TokenType::SemiColon, self.peek_token.token_type.clone()));
       }
 
-      Ok(StatementNode::Let(Ident(name), expr))
+      Ok(Node::Statement(Statement::Let(Ident(name), expr)))
     }
 
-      fn parse_statement(&mut self) -> Result<StatementNode, ParserError> {
+      fn parse_statement(&mut self) -> Result<Node, ParserError> {
 
-
-        match self.cur_token.token_type {
+        match self.cur_token.token_type.clone() {
           TokenType::Let => { self.parse_let_statement() },
-          TokenType::Null => { Ok(StatementNode::Null) }
+          TokenType::Return => { self.parse_return_statement() },
+          TokenType::Null => { Ok(Node::Statement(Statement::Null)) }
           _ => {
             Err(ParserError::UnknownTokenError(self.cur_token.token_type.clone()))
           }
@@ -300,10 +440,8 @@ impl<'a> Parser<'a> {
   
     pub fn parse_program(&'a mut self) -> Program {
 
-        let lex = self.lexer.clone();
         let mut program = Program { statements: vec![] };
-        self.next_token();
-        self.next_token();
+        self.load_first_tokens();
 
         loop {
 

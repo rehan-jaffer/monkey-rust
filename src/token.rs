@@ -14,6 +14,7 @@ pub struct Token {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TokenType {
+    Asterisk,
     Assign,
     SemiColon,
     LParen,
@@ -38,5 +39,9 @@ pub enum TokenType {
     Minus,
     LBracket,
     Equal,
-    NotEqual
+    NotEqual,
+    GreaterThan,
+    LessThan,
+    True,
+    False
 }
