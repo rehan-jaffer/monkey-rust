@@ -6,6 +6,9 @@ use std::io::{BufRead};
 use std::path::Path;
 use super::parser::{Statement, Node};
 use super::token::{Token, TokenType};
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
+use ansi_term::Style;
 
 const PROMPT : &str = ">>";
 
@@ -59,9 +62,9 @@ impl REPL {
 
   }
 
-  fn show_prompt(&self) {
-    print!("|saki $> ");
-    io::stdout().flush();
+  fn prompt(&self) -> String {
+    let prompt =  Style::new().bold().paint(format!("|saki ({:?}) $> ", self.mode)).to_string();
+    return prompt;
 }
 
 fn tokenize_input(&self, input: String) -> Vec<Token> {
@@ -90,7 +93,7 @@ fn parse_input(&self, input: String) -> Node {
 }
 
 fn repl_notify(&mut self, notification: &str) {
-    println!("** NOTICE {}", notification);
+    REPL::print_bold(format!("** NOTICE {}", notification).as_str());
 }
 
 fn set_mode(&mut self, mode: Mode) {
@@ -101,44 +104,60 @@ fn set_mode(&mut self, mode: Mode) {
 
 }
 
+fn print_bold(text: &str) {
+  println!("{}", Style::new().bold().paint(text));
+}
+
   fn read_loop(&mut self) {
 
+    let mut rl = Editor::<()>::new();
+
     let stdin = io::stdin();
-    self.show_prompt();
 
-    for line in stdin.lock().lines() {
+    loop {
 
-        let input = line.unwrap();
-        self.history.add(input.clone());
+        let input = rl.readline(self.prompt().as_str());
 
-        match input.as_str() {
-            "exit" => { return () },
-            ":p" => { self.set_mode(Mode::Parse) },
-            ":pex" => self.set_mode(Mode::ParseToSexp),
-            ":t" => self.set_mode(Mode::Tokenize),
-            _ => {
-                match self.mode {
-                    Mode::Parse => {
-                      let res = self.parse_input(input);
-                      println!("s > {:?}", res);    
+        match input {
+            Ok(line) => {
+
+                match line.as_str() {
+                    "exit" => { 
+                        println!("Bye! Have a very monkey day!");
+                        return () 
                     },
-                    Mode::ParseToSexp => {
-                      let res = self.parse_input(input);
-                      println!("s > {}", res.serialize());    
+                    ":p" => { self.set_mode(Mode::Parse) },
+                    ":pex" => self.set_mode(Mode::ParseToSexp),
+                    ":t" => self.set_mode(Mode::Tokenize),
+                    _ => {
+                        rl.add_history_entry(line.as_str());
+                        match self.mode {
+                            Mode::Parse => {
+                              let res = self.parse_input(line);
+                              println!("s > {:?}", res);    
+                            },
+                            Mode::ParseToSexp => {
+                              let res = self.parse_input(line);
+                              println!("s > {}", res.serialize());    
+                            }
+                            Mode::Tokenize => {
+                              let res = self.tokenize_input(line);
+                              for token in res {
+                                println!("<Token:{:?}:{:?}>", token.token_type, token.token_literal);
+                              }
+                            }
+                          }          
                     }
-                    Mode::Tokenize => {
-                      let res = self.tokenize_input(input);
-                      print!("s >");    
-                      for token in res {
-                        println!("<Token:{:?}:{:?}>", token.token_type, token.token_literal);
-                      }
-                    }
-                  }          
+                }
             }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break
+            }
+    
+
         }
 
-
-        self.show_prompt();
         
     }
 
