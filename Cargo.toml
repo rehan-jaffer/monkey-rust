@@ -7,3 +7,5 @@ edition = "2018"
 
 [dependencies]
 "lazy_static" = "*"
+"rustyline" = "9.0.0"
+"ansi_term" = "*"
