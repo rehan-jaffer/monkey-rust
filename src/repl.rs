@@ -134,7 +134,7 @@ fn print_bold(text: &str) {
                         match self.mode {
                             Mode::Parse => {
                               let res = self.parse_input(line);
-                              println!("s > {:?}", res);    
+                              println!("s > {:#?}", res);    
                             },
                             Mode::ParseToSexp => {
                               let res = self.parse_input(line);

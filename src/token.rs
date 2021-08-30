@@ -43,5 +43,6 @@ pub enum TokenType {
     GreaterThan,
     LessThan,
     True,
-    False
+    False,
+    Slash
 }

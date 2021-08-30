@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 enum ParserError {
-    UnexpectedTokenError(TokenType, TokenType),
+    UnexpectedTokenError(TokenType, TokenType, String),
     UnknownTokenError(TokenType)
 }
 
@@ -37,8 +37,11 @@ impl Expr {
         let mut ret = String::new();
  
         match self {
-            Expr::Ident(ident) => {
-              ret += "()";
+            Expr::Ident(Ident(ident)) => {
+                match ident {
+                    TokenValue::Identifier(str) => ret += format!(" {}", str).as_str(),
+                    _ => { panic!("") }
+                }
             },
             Expr::Literal(literal) => {
                 ret += " ";
@@ -81,7 +84,31 @@ impl Expr {
                   _ => {}
                 }
             },
-            Null => {}
+            Expr::Conditional(Conditional { condition, consequence, alternative }) => {
+
+                ret += format!("({}) ? ", condition.serialize()).as_str();
+
+                for statement in consequence {
+                    ret += format!("({})", statement.serialize().as_str()).as_str();
+                }
+
+                ret += " : ";
+
+                match alternative {
+                    None => {
+                        ret += "()"
+                    }
+                    Some(alternative) => {
+                        for statement in alternative {
+                            ret += format!("({})", statement.serialize().as_str()).as_str();
+                        }        
+                    }
+                }
+
+                ret += "";
+
+            },
+            _ => {}
         }
         return ret;
     }
@@ -97,7 +124,8 @@ impl Node {
           Node::Statement(statement) => {
             let stmt = match statement {
               Statement::Let(Ident(TokenValue::Identifier(ident)), expr) => { format!("{} {}{}", statement.serialize(), ident, &expr.serialize()) }
-              Statement::Return(expr) => { format!("{}{}", statement.serialize(), &expr.serialize()) }
+              Statement::Return(expr) => { format!("{}{}", statement.serialize(), &expr.serialize()) },
+              Statement::Expr(expr) => { expr.serialize().to_string() }
               _ => {
                   "MISSING".to_string()
               }
@@ -189,11 +217,19 @@ impl Literal {
 }
 
 #[derive(Debug)]
+pub struct Conditional {
+    condition: Box<Expr>,
+    consequence: Block,
+    alternative: Option<Block>
+}
+
+#[derive(Debug)]
 pub enum Expr {
     Ident(Ident),
     Literal(Literal),
     Infix(Infix, Box<Expr>, Box<Expr>),
     Prefix(Prefix, Box<Expr>),
+    Conditional(Conditional),
     Null
 }
 
@@ -248,7 +284,6 @@ impl<'a> Parser<'a> {
     fn expect_peek(&mut self, token_type: TokenType) -> bool {
         
         let peek = self.peek_token.clone();
-        
         if peek.token_type == token_type {
             self.next_token();
             return true;
@@ -265,7 +300,76 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ident_expr(&mut self) -> Result<Expr, ParserError> {
-      Ok(Expr::Null)
+      return Ok(Expr::Ident(Ident(self.cur_token.token_literal.clone())))
+    }
+
+    fn current_token_is(&self, token_type: TokenType) -> bool {
+      return (self.cur_token.token_type.clone() == token_type);
+    }
+
+    fn peek_token_is(&self, token_type: TokenType) -> bool {
+        return (self.peek_token.token_type.clone() == token_type);
+    }  
+
+    fn parse_block_statement(&mut self) -> Result<Block, ParserError> {
+
+        let mut block = Vec::new();
+
+        self.next_token();
+
+        loop {
+
+            if self.current_token_is(TokenType::EOF) || self.current_token_is(TokenType::RBrace) {
+                break;
+            }
+
+            block.push(self.parse_statement().unwrap());
+            self.next_token();
+        }
+        return Ok(block);
+    }
+
+    fn parse_conditional_expr(&mut self) -> Result<Expr, ParserError> {
+
+      let mut alternative = None;
+
+      if !(self.expect_peek(TokenType::LParen)) {
+          return Err(ParserError::UnexpectedTokenError(TokenType::LParen, self.peek_token.token_type.clone(), String::from("parse_conditional_expr")));
+      } 
+
+      self.next_token();
+
+      let condition = self.parse_expr(Precedence::LOWEST).unwrap();
+
+      if !self.expect_peek(TokenType::RParen) {
+        return Err(ParserError::UnexpectedTokenError(TokenType::RParen, self.peek_token.token_type.clone(), String::from("parse_conditional_expr")));
+      } 
+
+      if !self.expect_peek(TokenType::LBrace) {
+        return Err(ParserError::UnexpectedTokenError(TokenType::LBrace, self.peek_token.token_type.clone(), String::from("parse_conditional_expr")));
+      }
+
+//      self.next_token();
+
+      let consequence = self.parse_block_statement().unwrap();
+
+      if self.peek_token_is(TokenType::Else) {
+
+        self.next_token();
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return Err(ParserError::UnexpectedTokenError(TokenType::LBrace, self.peek_token.token_type.clone(), String::from("parse_conditional_expr")));
+        }
+
+        alternative = Some(self.parse_block_statement().unwrap());
+
+        self.next_token();
+
+      }
+
+
+    return Ok(Expr::Conditional(Conditional { condition: Box::new(condition), consequence: consequence, alternative: alternative }))
+
     }
 
     fn parse_number(&mut self) -> Result<Expr, ParserError> {
@@ -277,9 +381,10 @@ impl<'a> Parser<'a> {
 
     fn token_precedence(&mut self, token_type: TokenType) -> Precedence {
       match token_type {
-          TokenType::Equal | TokenType::NotEqual => Precedence::EQUALS,
+          TokenType::Eq | TokenType::NotEq => Precedence::EQUALS,
+          TokenType::LessThan | TokenType::GreaterThan => Precedence::LESSGREATER,
           TokenType::Plus | TokenType::Minus => Precedence::SUM,
-          TokenType::Asterisk => Precedence::PRODUCT,
+          TokenType::Asterisk | TokenType::Slash => Precedence::PRODUCT,
           _ => Precedence::LOWEST,
       }
     }
@@ -293,6 +398,7 @@ impl<'a> Parser<'a> {
           TokenType::NotEq => Infix::NotEqual,
           TokenType::GreaterThan => Infix::GreaterThan,
           TokenType::LessThan => Infix::LessThan,
+          TokenType::Slash => Infix::Divide,
           _ => Infix::Null
         };
 
@@ -341,7 +447,7 @@ impl<'a> Parser<'a> {
         let expr = self.parse_expr(Precedence::LOWEST);
 
         if !self.expect_peek(TokenType::RParen) {
-            return Err(ParserError::UnexpectedTokenError(TokenType::RParen, self.cur_token.token_type.clone()));
+            return Err(ParserError::UnexpectedTokenError(TokenType::RParen, self.cur_token.token_type.clone(), "parse_grouped_expr".to_string()));
         }
 
         return expr;
@@ -355,7 +461,9 @@ impl<'a> Parser<'a> {
         TokenType::LParen => self.parse_grouped_expr(),
         TokenType::Ident => self.parse_ident_expr(),
         TokenType::Number => self.parse_number(),
-        TokenType::Bang | TokenType::Minus | TokenType::Plus => self.parse_prefix_expr(),
+        TokenType::If => self.parse_conditional_expr(),
+        TokenType::Bang 
+        | TokenType::Minus | TokenType::Plus  => self.parse_prefix_expr(),
         _ => {
             println!("Error in parse expression!");
             return Err(ParserError::UnknownTokenError(self.cur_token.token_type.clone()));
@@ -367,7 +475,10 @@ impl<'a> Parser<'a> {
         match self.peek_token.token_type {
         TokenType::Plus
         | TokenType::Asterisk
-        | TokenType::Minus => {
+        | TokenType::Minus
+        | TokenType::Eq
+        | TokenType::NotEq | TokenType::Slash
+        | TokenType::GreaterThan | TokenType::LessThan => {
             self.next_token();
             lhs = self.parse_infix_expr(lhs).unwrap();
         }
@@ -400,16 +511,33 @@ impl<'a> Parser<'a> {
 
     }
 
+    fn parse_expr_statement(&mut self) -> Result<Node, ParserError> {
+
+      let expr = self.parse_expr(Precedence::LOWEST);
+
+      let res = match expr {
+          Ok(expr) => Ok(Node::Statement(Statement::Expr(expr))),
+          Err(e) => Err(e)
+      };
+
+      if (self.expect_peek(TokenType::SemiColon)) {
+          self.next_token();
+      }
+
+      return res;
+
+    }
+
     fn parse_let_statement(&mut self) -> Result<Node, ParserError> {
 
       if !self.expect_peek(TokenType::Ident) {
-        return Err(ParserError::UnexpectedTokenError(TokenType::Ident, self.peek_token.token_type.clone()));
+        return Err(ParserError::UnexpectedTokenError(TokenType::Ident, self.peek_token.token_type.clone(), String::from("parse_let_statement")));
       }
 
       let name =  self.cur_token.token_literal.clone();
 
       if !self.expect_peek(TokenType::Assign) {
-        return Err(ParserError::UnexpectedTokenError(TokenType::Assign, self.peek_token.token_type.clone()));
+        return Err(ParserError::UnexpectedTokenError(TokenType::Assign, self.peek_token.token_type.clone(), String::from("parse_let_statement")));
       }
 
       self.next_token();
@@ -420,7 +548,7 @@ impl<'a> Parser<'a> {
       };
 
       if !self.expect_peek(TokenType::SemiColon) {
-        return Err(ParserError::UnexpectedTokenError(TokenType::SemiColon, self.peek_token.token_type.clone()));
+        return Err(ParserError::UnexpectedTokenError(TokenType::SemiColon, self.peek_token.token_type.clone(), String::from("parse_let_statement")));
       }
 
       Ok(Node::Statement(Statement::Let(Ident(name), expr)))
@@ -433,7 +561,7 @@ impl<'a> Parser<'a> {
           TokenType::Return => { self.parse_return_statement() },
           TokenType::Null => { Ok(Node::Statement(Statement::Null)) }
           _ => {
-            Err(ParserError::UnknownTokenError(self.cur_token.token_type.clone()))
+            self.parse_expr_statement()
           }
         }
       }
