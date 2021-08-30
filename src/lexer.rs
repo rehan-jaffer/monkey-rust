@@ -121,15 +121,18 @@ pub struct Lexer<'a> {
                       }
                   };
                 },
+            Some('{') => super::token::Token { token_type: super::token::TokenType::LBrace, token_literal: super::token::TokenValue::String("{".to_string()) },
+            Some('}') => super::token::Token { token_type: super::token::TokenType::RBrace, token_literal: super::token::TokenValue::String("}".to_string()) },    
             Some(';') => super::token::Token { token_type: super::token::TokenType::SemiColon, token_literal: super::token::TokenValue::String(";".to_string()) },
             Some('(') => super::token::Token { token_type: super::token::TokenType::LParen, token_literal: super::token::TokenValue::String("(".to_string()) },
             Some(')') => super::token::Token { token_type: super::token::TokenType::RParen, token_literal: super::token::TokenValue::String(")".to_string()) },
             Some(',') => super::token::Token { token_type: super::token::TokenType::Comma, token_literal: super::token::TokenValue::String(",".to_string()) },
             Some('-') => super::token::Token { token_type: super::token::TokenType::Minus, token_literal: super::token::TokenValue::String("-".to_string()) },
             Some('+') => super::token::Token { token_type: super::token::TokenType::Plus, token_literal: super::token::TokenValue::String("+".to_string()) },
-            Some('[') => super::token::Token { token_type: super::token::TokenType::LBrace, token_literal: super::token::TokenValue::String("[".to_string()) },
-            Some(']') => super::token::Token { token_type: super::token::TokenType::RBrace, token_literal: super::token::TokenValue::String("]".to_string()) },
             Some('*') => super::token::Token { token_type: super::token::TokenType::Asterisk, token_literal: super::token::TokenValue::String("]".to_string()) },
+            Some('/') => super::token::Token { token_type: super::token::TokenType::Slash, token_literal: super::token::TokenValue::String("/".to_string()) },
+            Some('<') => super::token::Token { token_type: super::token::TokenType::LessThan, token_literal: super::token::TokenValue::String("<".to_string()) },
+            Some('>') => super::token::Token { token_type: super::token::TokenType::GreaterThan, token_literal: super::token::TokenValue::String(">".to_string()) },
             None => super::token::Token { token_type: super::token::TokenType::EOF, token_literal: super::token::TokenValue::String("\0".to_string()) },
             Some(e) => {
               if Lexer::is_digit(e) {
