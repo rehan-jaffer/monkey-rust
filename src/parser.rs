@@ -68,6 +68,20 @@ impl Expr {
               ret += expr2.serialize().as_str();
               ret += ")";
             },
+            Expr::Function(Function { token: _, parameters: parameters, body: body } ) => {
+
+              ret += format!("(fn {} {})", parameters.into_iter().map(|param| 
+                match param.value.clone() {
+                    TokenValue::Identifier(var) => var,
+                    _ => "".to_string()
+                }
+              ).collect::<Vec<String>>().join(" "), 
+                body.into_iter().map(|stmt| 
+                  stmt.serialize()
+                ).collect::<Vec<String>>().join(" ")
+              ).as_str();
+            }
+            
             Expr::Prefix(prefix, expr) => {
                 ret += " ";
                 match prefix {
@@ -224,12 +238,20 @@ pub struct Conditional {
 }
 
 #[derive(Debug)]
+pub struct Function {
+    token: Token,
+    parameters: Vec<Identifier>,
+    body: Block
+}
+
+#[derive(Debug)]
 pub enum Expr {
     Ident(Ident),
     Literal(Literal),
     Infix(Infix, Box<Expr>, Box<Expr>),
     Prefix(Prefix, Box<Expr>),
     Conditional(Conditional),
+    Function(Function),
     Null
 }
 
@@ -454,6 +476,62 @@ impl<'a> Parser<'a> {
 
     }
 
+    fn parse_parameters(&mut self) -> Result<Vec<Identifier>, ParserError> {
+
+      let mut params = Vec::new();
+      if self.peek_token_is(TokenType::RParen) {
+          self.next_token();
+          return Ok(params);
+      }
+
+      self.next_token();
+
+      let ident = Identifier { value: self.cur_token.token_literal.clone() };
+      params.push(ident);
+
+      loop {
+
+        self.next_token();
+        self.next_token();
+
+        let ident = Identifier { value: self.cur_token.token_literal.clone() };
+        params.push(ident);
+
+        if !self.peek_token_is(TokenType::Comma) {
+            break;
+        }
+
+      }
+
+      if (!self.expect_peek(TokenType::RParen)) {
+        return Err(ParserError::UnexpectedTokenError(TokenType::RParen, self.peek_token.token_type.clone(), "parse_function_expr".to_string()));
+      }
+
+      return Ok(params);
+
+    }
+
+    fn parse_function_literal(&mut self) -> Result<Expr, ParserError> {
+
+//      self.next_token();
+      let tok = self.cur_token.clone();
+
+      if !self.expect_peek(TokenType::LParen) {
+        return Err(ParserError::UnexpectedTokenError(TokenType::LParen, self.peek_token.token_type.clone(), "parse_function_expr".to_string()));
+      }
+
+      let parameters = self.parse_parameters().unwrap();
+
+      if !self.expect_peek(TokenType::LBrace) {
+        return Err(ParserError::UnexpectedTokenError(TokenType::LBrace, self.peek_token.token_type.clone(), "parse_function_expr".to_string()));
+      }
+
+      let function_body = self.parse_block_statement().unwrap();
+
+      Ok(Expr::Function(Function { token: tok, parameters: parameters, body: function_body }))
+
+    }
+
     fn parse_expr(&mut self, precedence: Precedence) -> Result<Expr, ParserError> {
 
       let mut lhs = match self.cur_token.token_type {
@@ -462,6 +540,7 @@ impl<'a> Parser<'a> {
         TokenType::Ident => self.parse_ident_expr(),
         TokenType::Number => self.parse_number(),
         TokenType::If => self.parse_conditional_expr(),
+        TokenType::Function => self.parse_function_literal(),
         TokenType::Bang 
         | TokenType::Minus | TokenType::Plus  => self.parse_prefix_expr(),
         _ => {
