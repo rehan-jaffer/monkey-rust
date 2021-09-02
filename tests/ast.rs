@@ -61,4 +61,19 @@ mod test {
     assert_eq!(parse_statement("return 1 + (1 * 3);"), "(ret (+ 1 (* 1 3)))");
     assert_eq!(parse_statement("return (1 + 1) * 3;"), "(ret (* (+ 1 1) 3))");
   }
+
+  #[test]
+  fn it_parses_all_prefix_operators() {
+    assert_eq!(parse_statement("let x = 1 + 2 - 3 / 4 - 5 == 6 == 7 < 8 > 9;"), "(let x (== (== (- (- (+ 1 2) (/ 3 4)) 5) 6) (> (< 7 8) 9)))");
+  }
+
+  #[test]
+  fn it_parses_if_statements() {
+    assert_eq!(parse_statement("if (1 > 2) { return 1; };"), "(( (> 1 2)) ? ((ret 1)) : ())");
+  }
+  
+  #[test]
+  fn it_parses_else_statements() {
+    assert_eq!(parse_statement("if (1 > 2) { return 1; } else { return 2; };"), "(( (> 1 2)) ? ((ret 1)) : ((ret 2)))");
+  }
 }
