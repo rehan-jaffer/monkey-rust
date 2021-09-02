@@ -68,7 +68,7 @@ impl Expr {
               ret += expr2.serialize().as_str();
               ret += ")";
             },
-            Expr::Function(Function { token: _, parameters: parameters, body: body } ) => {
+            Expr::Function(Function { token: _, parameters, body } ) => {
 
               ret += format!("(fn {} {})", parameters.into_iter().map(|param| 
                 match param.value.clone() {
@@ -81,7 +81,7 @@ impl Expr {
                 ).collect::<Vec<String>>().join(" ")
               ).as_str();
             }
-            
+
             Expr::Prefix(prefix, expr) => {
                 ret += " ";
                 match prefix {
